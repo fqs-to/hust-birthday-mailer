@@ -6,6 +6,8 @@ import calendar as calendar_module
 import csv
 import io
 import re
+from xml.etree import ElementTree
+from zipfile import ZipFile
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -121,7 +123,7 @@ ALIASES = {
     "birthday": ("birthday", "生日", "出生年月日", "出生日期"),
     "calendar": ("calendar", "历法", "生日历法", "生日类型"),
     "is_leap_month": ("is_leap_month", "闰月", "是否闰月"),
-    "enabled": ("enabled", "启用", "是否启用", "在职状态", "在职"),
+    "enabled": ("enabled", "启用", "是否启用", "在职状态", "在职情况", "在职"),
     "student_id": ("student_id", "学号"),
 }
 FIELDS = ("name", "email", "birthday", "calendar", "is_leap_month", "enabled")
@@ -132,13 +134,35 @@ def canonical_row(row: dict[str, object]) -> dict[str, object]:
     return {key: next((clean[alias] for alias in aliases if alias in clean), None) for key, aliases in ALIASES.items()}
 
 
+def xlsx_source(path: Path) -> Path | io.BytesIO:
+    """Normalize empty Tencent fill records in memory, retaining date formats."""
+    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    with ZipFile(path) as source:
+        if "xl/styles.xml" not in source.namelist():
+            return path
+        styles = ElementTree.fromstring(source.read("xl/styles.xml"))
+        fills = styles.find(f"{{{namespace}}}fills")
+        empty = [fill for fill in fills if len(fill) == 0] if fills is not None else []
+        if not empty:
+            return path
+        for fill in empty:
+            ElementTree.SubElement(fill, f"{{{namespace}}}patternFill")
+        replacement = ElementTree.tostring(styles, encoding="utf-8", xml_declaration=True)
+        output = io.BytesIO()
+        with ZipFile(output, "w") as destination:
+            for entry in source.infolist():
+                destination.writestr(entry, replacement if entry.filename == "xl/styles.xml" else source.read(entry.filename))
+        output.seek(0)
+        return output
+
+
 def read_rows(path: Path, sheet: str | None = None) -> list[dict[str, object]]:
     if path.suffix.lower() == ".xlsx":
         try:
             from openpyxl import load_workbook
         except ImportError as exc:
             raise DataError('读取 Excel 需要安装：pip install -e ".[xlsx]"') from exc
-        book = load_workbook(path, read_only=True, data_only=True)
+        book = load_workbook(xlsx_source(path), read_only=True, data_only=True)
         try:
             if sheet and sheet not in book.sheetnames:
                 raise DataError("找不到指定工作表")

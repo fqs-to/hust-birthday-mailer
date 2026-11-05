@@ -178,8 +178,8 @@ def main(argv: list[str] | None = None) -> int:
     except UnicodeDecodeError:
         print("错误：文本文件需要使用 UTF-8 编码。", file=sys.stderr)
         return 1
-    except smtplib.SMTPAuthenticationError:
-        print("错误：SMTP 认证失败；请检查客户端服务和邮箱凭据。", file=sys.stderr)
+    except smtplib.SMTPAuthenticationError as exc:
+        print(f"错误：SMTP 认证失败（状态码 {exc.smtp_code}）；请检查邮箱账号、客户端服务及客户端专用密码。", file=sys.stderr)
         return 1
     except (OSError, smtplib.SMTPException) as exc:
         print(f"错误：{type(exc).__name__}。请检查网络、文件和 SMTP 设置；已有投递尝试请先核实，不要直接重发。", file=sys.stderr)

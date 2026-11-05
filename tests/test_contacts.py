@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+from xml.etree import ElementTree
+from zipfile import ZipFile
 from datetime import date, datetime
 from pathlib import Path
 
@@ -36,6 +38,10 @@ class ContactTests(unittest.TestCase):
             self.assertNotIn("not-retained", text)
             self.assertNotIn("2008", text)
             self.assertEqual(members_from_rows(read_rows(target))[0], members)
+        for header in ("在职", "在职状态", "在职情况"):
+            with self.subTest(header=header):
+                inactive, _ = members_from_rows([{"姓名": "示例", "学校邮箱": "demo@example.edu", "出生年月日": "11-05", header: "离职"}])
+                self.assertFalse(inactive[0].enabled)
 
     def test_derived_student_emails_are_disabled(self):
         row = {"姓名": "示例", "学号": "U202600001", "出生年月日": "2008-11-05", "在职": "在职"}
@@ -80,6 +86,31 @@ class ContactTests(unittest.TestCase):
             workbook.save(target)
             members, _ = members_from_rows(read_rows(target, "资委会"))
             self.assertEqual(members, [Member("示例", "demo@example.edu", 11, 5)])
+
+    def test_tencent_empty_fill_keeps_dates_and_source_file(self):
+        from openpyxl import Workbook
+        import io
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "tencent.xlsx"
+            workbook = Workbook()
+            workbook.active.append(["姓名", "学校邮箱", "出生年月日"])
+            workbook.active.append(["示例", "demo@example.edu", datetime(2008, 11, 5)])
+            workbook.save(target)
+            buffer = io.BytesIO()
+            namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+            with ZipFile(target) as source, ZipFile(buffer, "w") as destination:
+                for entry in source.infolist():
+                    content = source.read(entry.filename)
+                    if entry.filename == "xl/styles.xml":
+                        styles = ElementTree.fromstring(content)
+                        styles.find(f"{{{namespace}}}fills")[0].clear()
+                        content = ElementTree.tostring(styles, encoding="utf-8")
+                    destination.writestr(entry, content)
+            original = buffer.getvalue()
+            target.write_bytes(original)
+            members, _ = members_from_rows(read_rows(target))
+            self.assertEqual(members, [Member("示例", "demo@example.edu", 11, 5)])
+            self.assertEqual(target.read_bytes(), original)
 
 
 class CalendarTests(unittest.TestCase):

@@ -1,6 +1,7 @@
 import contextlib
 import io
 import os
+import smtplib
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,12 @@ from birthday_mailer.cli import main
 
 
 class CLITests(unittest.TestCase):
+    def setUp(self):
+        # Unit tests must not consume a developer's real local mailbox config.
+        local_env = patch("birthday_mailer.cli.load_env")
+        local_env.start()
+        self.addCleanup(local_env.stop)
+
     def invoke(self, arguments):
         output = io.StringIO()
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
@@ -62,13 +69,25 @@ class CLITests(unittest.TestCase):
     def test_chinese_output_works_in_non_utf8_pipe(self):
         sample = Path(__file__).resolve().parents[1] / "examples" / "members.csv"
         environment = {**os.environ, "PYTHONIOENCODING": "ascii", "PYTHONUTF8": "0"}
-        result = subprocess.run(
-            [sys.executable, "-m", "birthday_mailer", "run", "--members", str(sample), "--date", "2026-11-05"],
-            env=environment, capture_output=True, encoding="utf-8", timeout=15,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [sys.executable, "-m", "birthday_mailer", "run", "--members", str(sample), "--date", "2026-11-05"],
+                cwd=directory, env=environment, capture_output=True, encoding="utf-8", timeout=15,
+            )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("北京时间日期", result.stdout)
         self.assertIn("发送邮件：0", result.stdout)
+
+    def test_auth_error_shows_status_without_server_personal_data(self):
+        environment = {"SMTP_USERNAME": "sender@example.edu", "SMTP_PASSWORD": "dummy-secret"}
+        with patch.dict(os.environ, environment, clear=True):
+            with patch("birthday_mailer.cli.SMTPTransport") as factory:
+                factory.return_value.__enter__.side_effect = smtplib.SMTPAuthenticationError(535, b"server@example.edu dummy-secret")
+                code, output = self.invoke(["test-email", "--send"])
+        self.assertEqual(code, 1)
+        self.assertIn("535", output)
+        self.assertNotIn("server@example.edu", output)
+        self.assertNotIn("dummy-secret", output)
 
 
 if __name__ == "__main__":
