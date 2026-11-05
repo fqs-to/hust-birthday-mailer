@@ -142,7 +142,7 @@ SMTP 返回成功表示服务器已接受邮件；是否最终入箱还需查看
 
 ### 3. 开启定时发送
 
-在同一设置页的 **Variables** 添加 `BIRTHDAY_ENABLED=true`。此后每天北京时间约 **09:17、12:17、17:17** 检查一次。后两次用于同日补跑，已有记录的生日祝福会跳过；不是每次重复发。
+在同一设置页的 **Variables** 添加 `BIRTHDAY_ENABLED=true`。此后每天北京时间约 **07:07** 首次检查，**07:27、07:47** 补跑，尽量在八点前送达。已有记录的生日祝福会跳过；不是每次重复发。定时任务可能因 GitHub 排队而延迟，不能保证严格在八点前送达。
 
 可选变量：`SMTP_HOST`、`SMTP_PORT`、`SMTP_SECURITY`、`SMTP_FROM_NAME`、`ORGANIZATION`、`STATE_COMMIT_NAME`、`STATE_COMMIT_EMAIL`。
 

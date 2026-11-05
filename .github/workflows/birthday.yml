@@ -2,8 +2,8 @@ name: Birthday greetings
 
 on:
   schedule:
-    # UTC 01:17 / 04:17 / 09:17 = Beijing 09:17 / 12:17 / 17:17.
-    - cron: '17 1,4,9 * * *'
+    # UTC 23:07 / 23:27 / 23:47 = Beijing 07:07 / 07:27 / 07:47 the next day.
+    - cron: '7,27,47 23 * * *'
   workflow_dispatch:
     inputs:
       mode:

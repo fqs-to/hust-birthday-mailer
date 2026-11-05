@@ -2,7 +2,7 @@
 Description=Check birthdays three times per day in Beijing time
 
 [Timer]
-OnCalendar=*-*-* 09,12,17:17:00 Asia/Shanghai
+OnCalendar=*-*-* 07:07,27,47:00 Asia/Shanghai
 Persistent=true
 RandomizedDelaySec=60
 
