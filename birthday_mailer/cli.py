@@ -68,6 +68,7 @@ def parser() -> argparse.ArgumentParser:
     test = commands.add_parser("test-email", help="只给发件人自己发一封测试邮件，不使用名单")
     test.add_argument("--name", default="测试同学")
     test.add_argument("--send", action="store_true")
+    test.add_argument("--git-state", action="store_true", help="先验证云端发送记录的持久保存")
     resolve = commands.add_parser("resolve", help="人工核实后处理一条未确认的发送记录")
     resolve.add_argument("--email", required=True)
     resolve.add_argument("--occurrence", required=True, help="例如 solar-2026 或 lunar-2026")
@@ -112,7 +113,7 @@ def state_path(args: argparse.Namespace):
         root = Path.cwd().resolve()
         directory = root / ".state"
         git_state.prepare(root, directory)
-        return directory / "deliveries.json", lambda: git_state.sync(directory)
+        return directory / "deliveries.json", lambda: git_state.sync(directory, root)
     return args.ledger, None
 
 
@@ -156,6 +157,11 @@ def main(argv: list[str] | None = None) -> int:
                 print("测试演练完成，发送邮件：0。添加 --send 后只会发送到 SMTP_FROM（默认 SMTP_USERNAME）本人。")
                 return 0
             config = SMTPConfig.from_env()
+            if args.git_state:
+                path, callback = state_path(args)
+                with ledger_lock(path):
+                    Ledger(path, os.environ.get("STATE_SECRET", ""), callback).save()
+                print("云端发送记录已完成读写验证。")
             member = Member(args.name, config.sender, 1, 1)
             message = build_message(member, config, organization, make_msgid(domain=config.sender.rsplit("@", 1)[1]), test=True)
             with SMTPTransport(config) as transport:

@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 import smtplib
 import subprocess
@@ -10,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from birthday_mailer.cli import main
+from birthday_mailer.contacts import DataError
 
 
 class CLITests(unittest.TestCase):
@@ -48,6 +50,33 @@ class CLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(message["To"].addresses[0].addr_spec, "sender@example.edu")
         self.assertIn("【测试邮件】", message["Subject"])
+
+    def test_cloud_test_saves_empty_state_before_sending(self):
+        environment = {"SMTP_USERNAME": "sender@example.edu", "SMTP_PASSWORD": "dummy", "STATE_SECRET": "test-state-key-" * 4}
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = Path(directory) / "deliveries.json"
+            events = []
+            def send(message):
+                self.assertEqual(json.loads(ledger.read_text())["deliveries"], {})
+                self.assertEqual(message["To"].addresses[0].addr_spec, "sender@example.edu")
+                events.append("smtp")
+            with patch.dict(os.environ, environment, clear=True), patch("birthday_mailer.cli.state_path", return_value=(ledger, lambda: events.append("sync"))):
+                with patch("birthday_mailer.cli.SMTPTransport") as factory, patch("birthday_mailer.cli.load_members", side_effect=AssertionError("Roster must not be read")):
+                    factory.return_value.__enter__.return_value.send.side_effect = send
+                    code, output = self.invoke(["test-email", "--send", "--git-state"])
+            self.assertEqual(code, 0, output)
+            self.assertEqual(events, ["sync", "smtp"])
+
+    def test_cloud_state_failure_prevents_test_email(self):
+        environment = {"SMTP_USERNAME": "sender@example.edu", "SMTP_PASSWORD": "dummy", "STATE_SECRET": "test-state-key-" * 4}
+        def failed_sync():
+            raise DataError("state sync failed")
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, environment, clear=True), patch("birthday_mailer.cli.state_path", return_value=(Path(directory) / "state.json", failed_sync)):
+                with patch("birthday_mailer.cli.SMTPTransport") as factory:
+                    code, output = self.invoke(["test-email", "--send", "--git-state"])
+            self.assertEqual(code, 1)
+            factory.assert_not_called()
 
     def test_import_does_not_overwrite_by_default(self):
         with tempfile.TemporaryDirectory() as directory:

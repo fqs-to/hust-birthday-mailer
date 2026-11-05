@@ -91,6 +91,8 @@ name,email,birthday,calendar,is_leap_month,enabled
 
 复制 `.env.example` 为 `.env`，填写自己的邮箱信息。
 
+`SMTP_FROM_NAME` 是每封邮件中的发件人显示名，`SMTP_USERNAME` 是登录邮箱的账号。修改显示名不会修改邮箱账户资料。云端对应同名 Actions Variable；祝福正文与落款可在 `birthday_mailer/mail.py` 中调整。
+
 ```powershell
 Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"
@@ -135,7 +137,7 @@ SMTP 返回成功表示服务器已接受邮件；是否最终入箱还需查看
 进入 **Actions → Birthday greetings → Run workflow**：
 
 1. 选择 `dry-run`，确认校验通过。没有配置真实名单时会明确提示只用虚构示例。
-2. 选择 `test`，检查自己收到的测试邮件。
+2. 选择 `test`，先验证状态分支的读写，再只给自己发送测试邮件。此步骤也需要配置 `STATE_SECRET`。
 3. 核实收件地址、生日历法和启用状态。
 
 ### 3. 开启定时发送

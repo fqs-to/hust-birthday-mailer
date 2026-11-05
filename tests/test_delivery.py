@@ -2,6 +2,7 @@ import json
 import smtplib
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -101,6 +102,14 @@ class DeliveryTests(unittest.TestCase):
 
 
 class MailTests(unittest.TestCase):
+    def test_display_name_changes_only_the_message_label(self):
+        renamed = replace(CONFIG, sender_name="计算机学院资委会")
+        message = build_message(MEMBER, renamed, "计算机学院资委会", "<test@example.edu>")
+        self.assertEqual(message["From"].addresses[0].display_name, "计算机学院资委会")
+        self.assertEqual(message["From"].addresses[0].addr_spec, CONFIG.sender)
+        self.assertEqual(renamed.username, CONFIG.username)
+        self.assertEqual(renamed.password, CONFIG.password)
+
     def test_multipart_single_recipient_and_html_escape(self):
         member = Member("<示例&同学>", MEMBER.email, 11, 5)
         subject, text, markup = render_greeting(member, "<资委会>")

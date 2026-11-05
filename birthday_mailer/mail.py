@@ -18,22 +18,21 @@ BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
 def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
     subject = f"{member.name}，生日快乐！｜{organization}"
-    text = (f"{member.name}同学：\n\n生日快乐！\n\n"
-            "感谢你在资委会的每一份付出，也很高兴能和你一起做有意义的事。\n"
-            "愿新的一岁，学业有收获，生活有惊喜，身边有温暖。\n"
-            "忙碌之余，也记得给自己留一点快乐的时间。\n\n"
-            f"来自{organization}的祝福\n\n"
+    signature = f"华中科技大学{organization}" if organization == "计算机学院资委会" else organization
+    text = (f"亲爱的{member.name}同学：\n\n您好！\n\n"
+            f"今天是您的生日，{organization}祝您生日快乐、万事胜意、天天开心！\n\n"
+            f"{signature}\n\n"
             "这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。\n")
-    name, org = html.escape(member.name), html.escape(organization)
+    name, org, sign = html.escape(member.name), html.escape(organization), html.escape(signature)
     markup = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:28px 12px;background:#f4f3ed;color:#243a35;font-family:'Microsoft YaHei',Arial,sans-serif;">
 <table role="presentation" style="width:100%;max-width:600px;margin:auto;border-collapse:collapse;background:#fff;">
 <tr><td style="padding:26px 32px;background:#174c42;color:#fff;font-size:14px;letter-spacing:2px;">{org}</td></tr>
 <tr><td style="padding:38px 32px 12px;color:#8a6332;font-size:13px;letter-spacing:3px;">HAPPY BIRTHDAY</td></tr>
-<tr><td style="padding:0 32px 24px;font-size:30px;font-weight:bold;">{name}，生日快乐！</td></tr>
-<tr><td style="padding:0 32px 32px;font-size:16px;line-height:2;">感谢你在资委会的每一份付出，<br>也很高兴能和你一起做有意义的事。<br><br>
-愿新的一岁，<br>学业有收获，生活有惊喜，身边有温暖。<br>忙碌之余，也记得给自己留一点快乐的时间。</td></tr>
-<tr><td style="padding:22px 32px;border-top:1px solid #e7e9e3;font-size:14px;">来自{org}的祝福</td></tr>
+<tr><td style="padding:0 32px 24px;font-size:30px;font-weight:bold;">生日快乐！</td></tr>
+<tr><td style="padding:0 32px 32px;font-size:16px;line-height:2;">亲爱的{name}同学：<br><br>您好！<br><br>
+今天是您的生日，{org}祝您生日快乐、万事胜意、天天开心！</td></tr>
+<tr><td style="padding:22px 32px;border-top:1px solid #e7e9e3;font-size:14px;">{sign}</td></tr>
 <tr><td style="padding:0 32px 26px;color:#697773;font-size:12px;line-height:1.8;">这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。</td></tr>
 </table></body></html>"""
     return subject, text, markup

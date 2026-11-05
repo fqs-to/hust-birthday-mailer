@@ -9,7 +9,7 @@ from birthday_mailer.cli import main
 def run() -> int:
     mode = os.environ.get("RUN_MODE", "dry-run")
     if mode == "test":
-        return main(["test-email", "--send"])
+        return main(["test-email", "--send", "--git-state"])
     if mode not in {"dry-run", "send"}:
         print("未知运行模式。", file=sys.stderr)
         return 1

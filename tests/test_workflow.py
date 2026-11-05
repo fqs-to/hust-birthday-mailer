@@ -8,6 +8,11 @@ from scripts.action_run import run
 
 
 class WorkflowGateTests(unittest.TestCase):
+    def test_cloud_email_test_also_checks_persistent_state(self):
+        with patch.dict(os.environ, {"RUN_MODE": "test"}, clear=True), patch("scripts.action_run.main", return_value=0) as main:
+            self.assertEqual(run(), 0)
+            main.assert_called_once_with(["test-email", "--send", "--git-state"])
+
     def test_send_requires_explicit_enabled_flag(self):
         with patch.dict(os.environ, {"RUN_MODE": "send", "MEMBERS_CSV": "placeholder"}, clear=True):
             with patch("scripts.action_run.main") as main, contextlib.redirect_stderr(io.StringIO()):

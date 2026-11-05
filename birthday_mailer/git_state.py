@@ -40,9 +40,12 @@ def prepare(root: Path, state_dir: Path) -> None:
     git(root, "config", "user.email", email)
 
 
-def sync(state_dir: Path) -> None:
+def sync(state_dir: Path, root: Path | None = None) -> None:
     git(state_dir, "add", "--", "deliveries.json")
     changed = git(state_dir, "diff", "--cached", "--quiet", allowed=(0, 1))
     if changed.returncode == 1:
         git(state_dir, "commit", "-m", "Record birthday delivery state")
-        git(state_dir, "push", "origin", f"HEAD:refs/heads/{BRANCH}")
+        state_sha = git(state_dir, "rev-parse", "HEAD").stdout.strip()
+        # Checkout's scoped HTTP credentials apply to the original checkout.
+        # The worktree shares its objects, so push its exact commit from root.
+        git(root or state_dir.parent, "push", "origin", f"{state_sha}:refs/heads/{BRANCH}")
