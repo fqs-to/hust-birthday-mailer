@@ -1,0 +1,5 @@
+name,email,birthday,calendar,is_leap_month,enabled
+示例同学,demo@example.edu,11-05,solar,false,true
+闰日示例,leap@example.edu,02-29,solar,false,true
+农历示例,lunar@example.edu,01-01,lunar,false,true
+停用示例,disabled@example.edu,11-05,solar,false,false

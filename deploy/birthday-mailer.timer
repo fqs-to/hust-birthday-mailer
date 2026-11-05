@@ -1,0 +1,10 @@
+[Unit]
+Description=Check birthdays three times per day in Beijing time
+
+[Timer]
+OnCalendar=*-*-* 09,12,17:17:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,54 @@
+name: Birthday greetings
+
+on:
+  schedule:
+    # UTC 01:17 / 04:17 / 09:17 = Beijing 09:17 / 12:17 / 17:17.
+    - cron: '17 1,4,9 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'dry-run: 演练 / test: 仅发给自己 / send: 发给今日寿星'
+        type: choice
+        options: [dry-run, test, send]
+        default: dry-run
+
+# Scheduled runs require explicit configuration. Forks start disabled.
+concurrency:
+  group: birthday-delivery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  greet:
+    if: github.event_name == 'workflow_dispatch' || vars.BIRTHDAY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # HMAC-only delivery ledger, on a separate state branch.
+    env:
+      RUN_MODE: ${{ github.event_name == 'schedule' && 'send' || inputs.mode }}
+      BIRTHDAY_ENABLED: ${{ vars.BIRTHDAY_ENABLED }}
+      MEMBERS_CSV: ${{ secrets.MEMBERS_CSV }}
+      SMTP_HOST: ${{ vars.SMTP_HOST || 'mail.hust.edu.cn' }}
+      SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
+      SMTP_SECURITY: ${{ vars.SMTP_SECURITY || 'ssl' }}
+      SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SMTP_FROM_NAME: ${{ vars.SMTP_FROM_NAME || '计算机学院资委会' }}
+      ORGANIZATION: ${{ vars.ORGANIZATION || '计算机学院资委会' }}
+      STATE_SECRET: ${{ secrets.STATE_SECRET }}
+      STATE_COMMIT_NAME: ${{ vars.STATE_COMMIT_NAME || 'zxw' }}
+      STATE_COMMIT_EMAIL: ${{ vars.STATE_COMMIT_EMAIL || '189366550+fqs-to@users.noreply.github.com' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: python -m pip install -e ".[all]"
+      - name: Run selected mode
+        run: python scripts/action_run.py

@@ -1,0 +1,13 @@
+[Unit]
+Description=Student organization birthday greetings
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=birthday
+WorkingDirectory=/opt/hust-birthday-mailer
+EnvironmentFile=/etc/hust-birthday-mailer.env
+ExecStart=/opt/hust-birthday-mailer/.venv/bin/python -m birthday_mailer run --send
+UMask=0077
+NoNewPrivileges=true

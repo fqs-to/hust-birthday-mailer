@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hust-birthday-mailer"
+version = "0.1.0"
+description = "A small, privacy-conscious birthday email helper for student organizations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "zxw"}]
+dependencies = []
+
+[project.optional-dependencies]
+xlsx = ["openpyxl==3.1.5"]
+lunar = ["lunardate==0.3.0"]
+all = ["openpyxl==3.1.5", "lunardate==0.3.0"]
+
+[project.scripts]
+birthday-mailer = "birthday_mailer.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["birthday_mailer*"]

@@ -1,0 +1,127 @@
+"""Render and send one greeting at a time over authenticated TLS SMTP."""
+
+from __future__ import annotations
+
+import html
+import os
+import smtplib
+import ssl
+from dataclasses import dataclass
+from email.message import EmailMessage
+from email.utils import format_datetime, formataddr
+from datetime import datetime, timezone, timedelta
+
+from .contacts import DataError, Member, validate_email
+
+BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
+
+
+def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
+    subject = f"{member.name}，生日快乐！｜{organization}"
+    text = (f"{member.name}同学：\n\n生日快乐！\n\n"
+            "感谢你在资委会的每一份付出，也很高兴能和你一起做有意义的事。\n"
+            "愿新的一岁，学业有收获，生活有惊喜，身边有温暖。\n"
+            "忙碌之余，也记得给自己留一点快乐的时间。\n\n"
+            f"来自{organization}的祝福\n\n"
+            "这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。\n")
+    name, org = html.escape(member.name), html.escape(organization)
+    markup = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:28px 12px;background:#f4f3ed;color:#243a35;font-family:'Microsoft YaHei',Arial,sans-serif;">
+<table role="presentation" style="width:100%;max-width:600px;margin:auto;border-collapse:collapse;background:#fff;">
+<tr><td style="padding:26px 32px;background:#174c42;color:#fff;font-size:14px;letter-spacing:2px;">{org}</td></tr>
+<tr><td style="padding:38px 32px 12px;color:#8a6332;font-size:13px;letter-spacing:3px;">HAPPY BIRTHDAY</td></tr>
+<tr><td style="padding:0 32px 24px;font-size:30px;font-weight:bold;">{name}，生日快乐！</td></tr>
+<tr><td style="padding:0 32px 32px;font-size:16px;line-height:2;">感谢你在资委会的每一份付出，<br>也很高兴能和你一起做有意义的事。<br><br>
+愿新的一岁，<br>学业有收获，生活有惊喜，身边有温暖。<br>忙碌之余，也记得给自己留一点快乐的时间。</td></tr>
+<tr><td style="padding:22px 32px;border-top:1px solid #e7e9e3;font-size:14px;">来自{org}的祝福</td></tr>
+<tr><td style="padding:0 32px 26px;color:#697773;font-size:12px;line-height:1.8;">这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。</td></tr>
+</table></body></html>"""
+    return subject, text, markup
+
+
+@dataclass(frozen=True)
+class SMTPConfig:
+    host: str
+    port: int
+    security: str
+    username: str
+    password: str
+    sender: str
+    sender_name: str
+
+    @classmethod
+    def from_env(cls) -> "SMTPConfig":
+        required = ("SMTP_USERNAME", "SMTP_PASSWORD")
+        if any(not os.environ.get(key) for key in required):
+            raise DataError("请配置 SMTP_USERNAME 和 SMTP_PASSWORD")
+        security = os.environ.get("SMTP_SECURITY", "ssl").lower()
+        if security not in {"ssl", "starttls"}:
+            raise DataError("SMTP_SECURITY 只能为 ssl 或 starttls；不支持明文发信")
+        try:
+            port = int(os.environ.get("SMTP_PORT") or (465 if security == "ssl" else 587))
+            if not 1 <= port <= 65535:
+                raise ValueError
+        except ValueError as exc:
+            raise DataError("SMTP_PORT 无效") from exc
+        sender = validate_email(os.environ.get("SMTP_FROM") or os.environ["SMTP_USERNAME"])
+        sender_name = os.environ.get("SMTP_FROM_NAME") or os.environ.get("ORGANIZATION", "计算机学院资委会")
+        if any(ord(c) < 32 for c in sender_name):
+            raise DataError("发件人名称含控制字符")
+        return cls(os.environ.get("SMTP_HOST") or "mail.hust.edu.cn", port, security,
+                   os.environ["SMTP_USERNAME"], os.environ["SMTP_PASSWORD"], sender, sender_name)
+
+
+def build_message(member: Member, config: SMTPConfig, organization: str, message_id: str, *, test: bool = False) -> EmailMessage:
+    subject, text, markup = render_greeting(member, organization)
+    message = EmailMessage()
+    message["From"] = formataddr((config.sender_name, config.sender))
+    message["To"] = formataddr((member.name, member.email))
+    message["Reply-To"] = config.sender
+    message["Subject"] = ("【测试邮件】" if test else "") + subject
+    message["Date"] = format_datetime(datetime.now(BEIJING))
+    message["Message-ID"] = message_id
+    message["Auto-Submitted"] = "auto-generated"
+    message["X-Auto-Response-Suppress"] = "All"
+    message.set_content(text)
+    message.add_alternative(markup, subtype="html")
+    return message
+
+
+class SMTPTransport:
+    def __init__(self, config: SMTPConfig):
+        self.config = config
+        self.connection: smtplib.SMTP | None = None
+
+    def __enter__(self) -> "SMTPTransport":
+        context = ssl.create_default_context()
+        connection: smtplib.SMTP | None = None
+        try:
+            if self.config.security == "ssl":
+                connection = smtplib.SMTP_SSL(self.config.host, self.config.port, timeout=30, context=context)
+            else:
+                connection = smtplib.SMTP(self.config.host, self.config.port, timeout=30)
+                connection.ehlo()
+                connection.starttls(context=context)
+                connection.ehlo()
+            connection.login(self.config.username, self.config.password)
+            self.connection = connection
+            return self
+        except Exception:
+            if connection is not None:
+                connection.close()
+            raise
+
+    def send(self, message: EmailMessage) -> None:
+        if self.connection is None:
+            raise RuntimeError("SMTP connection is not open")
+        refused = self.connection.send_message(message, from_addr=self.config.sender)
+        if refused:
+            raise smtplib.SMTPRecipientsRefused(refused)
+
+    def __exit__(self, *args: object) -> None:
+        if self.connection:
+            # QUIT errors after DATA was accepted must not change a sent record.
+            try:
+                self.connection.quit()
+            except (OSError, smtplib.SMTPException):
+                self.connection.close()
