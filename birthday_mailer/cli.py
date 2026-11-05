@@ -117,6 +117,11 @@ def state_path(args: argparse.Namespace):
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows pipes can default to an ASCII/Western code page, even though
+    # console output and roster files are Unicode. Keep CLI output UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     try:
         load_env()
         args = parser().parse_args(argv)
@@ -170,7 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     except DataError as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1
-    except UnicodeError:
+    except UnicodeDecodeError:
         print("错误：文本文件需要使用 UTF-8 编码。", file=sys.stderr)
         return 1
     except smtplib.SMTPAuthenticationError:

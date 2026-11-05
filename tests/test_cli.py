@@ -1,6 +1,8 @@
 import contextlib
 import io
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -56,6 +58,17 @@ class CLITests(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertIn("生日快乐", target.read_text(encoding="utf-8"))
             transport.assert_not_called()
+
+    def test_chinese_output_works_in_non_utf8_pipe(self):
+        sample = Path(__file__).resolve().parents[1] / "examples" / "members.csv"
+        environment = {**os.environ, "PYTHONIOENCODING": "ascii", "PYTHONUTF8": "0"}
+        result = subprocess.run(
+            [sys.executable, "-m", "birthday_mailer", "run", "--members", str(sample), "--date", "2026-11-05"],
+            env=environment, capture_output=True, encoding="utf-8", timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("北京时间日期", result.stdout)
+        self.assertIn("发送邮件：0", result.stdout)
 
 
 if __name__ == "__main__":

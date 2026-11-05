@@ -1,5 +1,7 @@
 # HUST Birthday Mailer
 
+[![Tests](https://github.com/fqs-to/hust-birthday-mailer/actions/workflows/ci.yml/badge.svg)](https://github.com/fqs-to/hust-birthday-mailer/actions/workflows/ci.yml)
+
 给学生组织的一份生日祝福，按时送到每个人的邮箱。
 
 **作者：[zxw / fqs-to](https://github.com/fqs-to)** · Python 3.11+ · MIT
