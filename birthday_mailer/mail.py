@@ -20,7 +20,7 @@ def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
     subject = f"{member.name}，生日快乐！｜{organization}"
     signature = f"华中科技大学{organization}" if organization == "计算机学院资委会" else organization
     text = (f"亲爱的{member.name}同学：\n\n您好！\n\n"
-            f"今天是您的生日，{organization}祝您生日快乐、万事胜意、天天开心！\n\n"
+            f"今天是您的生日，{organization}祝您生日快乐、万事胜意、天天开心、无限进步！\n\n"
             f"{signature}\n\n"
             "这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。\n")
     name, org, sign = html.escape(member.name), html.escape(organization), html.escape(signature)
@@ -31,7 +31,7 @@ def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
 <tr><td style="padding:38px 32px 12px;color:#8a6332;font-size:13px;letter-spacing:3px;">HAPPY BIRTHDAY</td></tr>
 <tr><td style="padding:0 32px 24px;font-size:30px;font-weight:bold;">生日快乐！</td></tr>
 <tr><td style="padding:0 32px 32px;font-size:16px;line-height:2;">亲爱的{name}同学：<br><br>您好！<br><br>
-今天是您的生日，{org}祝您生日快乐、万事胜意、天天开心！</td></tr>
+今天是您的生日，{org}祝您生日快乐、万事胜意、天天开心、无限进步！</td></tr>
 <tr><td style="padding:22px 32px;border-top:1px solid #e7e9e3;font-size:14px;">{sign}</td></tr>
 <tr><td style="padding:0 32px 26px;color:#697773;font-size:12px;line-height:1.8;">这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。</td></tr>
 </table></body></html>"""
