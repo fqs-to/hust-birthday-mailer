@@ -7,11 +7,13 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
 from birthday_mailer.cli import main
 from birthday_mailer.contacts import DataError
+from birthday_mailer.mail import BEIJING
 
 
 class CLITests(unittest.TestCase):
@@ -50,6 +52,28 @@ class CLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(message["To"].addresses[0].addr_spec, "sender@example.edu")
         self.assertIn("【测试邮件】", message["Subject"])
+
+    def test_live_run_uses_member_name_and_normal_subject(self):
+        today = datetime.now(BEIJING).date()
+        environment = {
+            "SMTP_USERNAME": "sender@example.edu",
+            "SMTP_PASSWORD": "dummy",
+            "STATE_SECRET": "test-state-key-" * 4,
+            "MEMBERS_CSV": f"name,email,birthday\n张三,member@example.edu,{today:%m-%d}\n",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, environment, clear=True):
+                with patch("birthday_mailer.cli.SMTPTransport") as factory:
+                    code, output = self.invoke(["run", "--send", "--ledger", str(Path(directory) / "deliveries.json")])
+                    factory.return_value.__enter__.return_value.send.assert_called_once()
+                    message = factory.return_value.__enter__.return_value.send.call_args.args[0]
+        self.assertEqual(code, 0, output)
+        self.assertEqual(message["To"].addresses[0].addr_spec, "member@example.edu")
+        self.assertEqual(message["Subject"], "张三，生日快乐！｜计算机学院资委会")
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertTrue(body.startswith("亲爱的张三同学：\n"))
+        self.assertNotIn("测试同学", body)
+        self.assertIn("华中科技大学计算机学院资委会\n\n\n────────────────────\n投递说明\n", body)
 
     def test_cloud_test_saves_empty_state_before_sending(self):
         environment = {"SMTP_USERNAME": "sender@example.edu", "SMTP_PASSWORD": "dummy", "STATE_SECRET": "test-state-key-" * 4}
@@ -96,7 +120,7 @@ class CLITests(unittest.TestCase):
             self.assertTrue(preview.startswith("亲爱的示例同学：\n\n您好！\n\n"))
             self.assertIn("生日快乐", preview)
             self.assertNotIn("<html", preview)
-            self.assertIn("文本预览已保存", output)
+            self.assertIn("预览已保存", output)
             transport.assert_not_called()
 
     def test_chinese_output_works_in_non_utf8_pipe(self):

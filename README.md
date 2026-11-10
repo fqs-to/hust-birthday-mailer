@@ -14,7 +14,7 @@
 - 导入腾讯文档导出的 Excel，或 UTF-8 CSV / TSV，识别常见中英文表头。
 - 兼容部分腾讯文档导出文件的空填充样式记录，保留日期格式，原文件保持原样。
 - 支持 `2007.3.12`、`2008.0811`、`20070318` 等生日写法，导入后只保留月日。
-- 纯文本邮件，每封邮件只有一个收件人。
+- 极简信件排版，底部提示使用分隔线和灰色小字，并提供纯文本版本。每封邮件只有一个收件人。
 - 默认演练；提供本地预览和只发给自己的测试入口。
 - 发送前保存记录，重复运行跳过已有记录，异常结果由管理员人工核实。
 - 支持 GitHub Actions 定时运行，也可部署在常在线的 Linux 主机。
@@ -40,8 +40,10 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[all]"
 .\.venv\Scripts\python.exe -m birthday_mailer run --members examples/members.csv --date 2026-11-05
 .\.venv\Scripts\python.exe -m birthday_mailer preview
-Start-Process .\previews\birthday.txt
+Start-Process .\previews\birthday.html
 ```
+
+预览默认输出 `previews/birthday.html`。使用 `preview --output previews/birthday.txt` 可以查看邮件中的纯文本版本。
 
 Linux / macOS 使用 `.venv/bin/python`。仅使用公历 CSV 时，程序核心不依赖第三方库；`[xlsx]` 提供 Excel 导入，`[lunar]` 提供农历，`[all]` 安装两者。
 

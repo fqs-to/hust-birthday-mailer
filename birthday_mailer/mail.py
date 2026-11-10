@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import os
 import smtplib
 import ssl
@@ -15,15 +16,34 @@ from .contacts import DataError, Member, validate_email
 BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
 
-def render_greeting(member: Member, organization: str) -> tuple[str, str]:
+def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
     subject = f"{member.name}，生日快乐！｜{organization}"
     salutation = member.name if member.name.endswith("同学") else f"{member.name}同学"
     signature = f"华中科技大学{organization}" if organization == "计算机学院资委会" else organization
     text = (f"亲爱的{salutation}：\n\n您好！\n\n"
             f"今天是您的生日，{organization}祝您生日快乐、万事胜意、天天开心、无限进步！\n\n"
-            f"{signature}\n\n"
-            "这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。\n")
-    return subject, text
+            f"{signature}\n\n\n"
+            "────────────────────\n"
+            "投递说明\n"
+            "这是一封自动送达的生日祝福。\n"
+            "如生日或邮箱有误，或希望停止接收，请回复告知。\n")
+    name = html.escape(salutation)
+    org = html.escape(organization)
+    sign = html.escape(signature)
+    markup = f"""<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;background:#ffffff;color:#222222;font-family:'Microsoft YaHei','PingFang SC',Arial,sans-serif;">
+<div style="max-width:640px;margin:0 auto;padding:24px 20px;font-size:16px;line-height:1.9;">
+<p style="margin:0 0 20px;">亲爱的{name}：</p>
+<p style="margin:0 0 20px;">您好！</p>
+<p style="margin:0 0 28px;">今天是您的生日，{org}祝您生日快乐、万事胜意、天天开心、无限进步！</p>
+<p style="margin:0;">{sign}</p>
+<div style="margin-top:36px;padding-top:14px;border-top:1px solid #e1e5e9;color:#757575;font-size:12px;line-height:1.75;">
+<p style="margin:0 0 4px;">投递说明</p>
+<p style="margin:0;">这是一封自动送达的生日祝福。<br>如生日或邮箱有误，或希望停止接收，请回复告知。</p>
+</div>
+</div></body></html>"""
+    return subject, text, markup
 
 
 @dataclass(frozen=True)
@@ -59,7 +79,7 @@ class SMTPConfig:
 
 
 def build_message(member: Member, config: SMTPConfig, organization: str, message_id: str, *, test: bool = False) -> EmailMessage:
-    subject, text = render_greeting(member, organization)
+    subject, text, markup = render_greeting(member, organization)
     message = EmailMessage()
     message["From"] = formataddr((config.sender_name, config.sender))
     message["To"] = formataddr((member.name, member.email))
@@ -70,6 +90,7 @@ def build_message(member: Member, config: SMTPConfig, organization: str, message
     message["Auto-Submitted"] = "auto-generated"
     message["X-Auto-Response-Suppress"] = "All"
     message.set_content(text)
+    message.add_alternative(markup, subtype="html")
     return message
 
 
