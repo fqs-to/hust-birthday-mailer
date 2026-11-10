@@ -54,9 +54,9 @@ def parser() -> argparse.ArgumentParser:
     imp.add_argument("--overwrite", action="store_true", help="明确允许覆盖已有导入文件")
     check = commands.add_parser("validate", help="校验名单（不显示姓名、地址）")
     check.add_argument("--members", type=Path)
-    preview = commands.add_parser("preview", help="生成一封本地 HTML 预览，不发信")
+    preview = commands.add_parser("preview", help="生成一封本地文本预览，不发信")
     preview.add_argument("--name", default="示例同学")
-    preview.add_argument("--output", type=Path, default=Path("previews/birthday.html"))
+    preview.add_argument("--output", type=Path, default=Path("previews/birthday.txt"))
     run = commands.add_parser("run", help="检查今日生日；默认演练，加 --send 才会发信")
     run.add_argument("--members", type=Path)
     run.add_argument("--date", type=date.fromisoformat, help="仅供演练，不能与 --send 同时使用")
@@ -146,10 +146,10 @@ def main(argv: list[str] | None = None) -> int:
             name = args.name.strip()
             if not name or any(ord(c) < 32 for c in name):
                 raise DataError("预览姓名无效")
-            _, _, markup = render_greeting(Member(name, "demo@example.edu", 1, 1), organization)
+            _, text = render_greeting(Member(name, "demo@example.edu", 1, 1), organization)
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(markup, encoding="utf-8")
-            print(f"HTML 预览已保存：{args.output}")
+            args.output.write_text(text, encoding="utf-8")
+            print(f"文本预览已保存：{args.output}")
         elif args.command == "run":
             return run_command(args)
         elif args.command == "test-email":

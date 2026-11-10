@@ -3,6 +3,8 @@ import smtplib
 import tempfile
 import unittest
 from dataclasses import replace
+from email import policy
+from email.parser import BytesParser
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -110,18 +112,22 @@ class MailTests(unittest.TestCase):
         self.assertEqual(renamed.username, CONFIG.username)
         self.assertEqual(renamed.password, CONFIG.password)
 
-    def test_multipart_single_recipient_and_html_escape(self):
+    def test_plain_text_single_recipient_and_unicode_body(self):
         member = Member("<示例&同学>", MEMBER.email, 11, 5)
-        subject, text, markup = render_greeting(member, "<资委会>")
-        self.assertIn("&lt;示例&amp;同学&gt;", markup)
-        self.assertNotIn("<资委会>", markup)
-        message = build_message(member, CONFIG, "资委会", "<test@example.edu>")
-        self.assertEqual(len(message.get_all("To")), 1)
-        self.assertIsNone(message["Cc"])
-        self.assertIsNone(message["Bcc"])
-        self.assertEqual([part.get_content_type() for part in message.iter_parts()], ["text/plain", "text/html"])
-        self.assertIn("生日快乐", text)
-        self.assertEqual(message["Auto-Submitted"], "auto-generated")
+        subject, text = render_greeting(member, "<资委会>")
+        message = build_message(member, CONFIG, "<资委会>", "<test@example.edu>")
+        parsed = BytesParser(policy=policy.default).parsebytes(message.as_bytes())
+        self.assertEqual(len(parsed.get_all("To")), 1)
+        self.assertIsNone(parsed["Cc"])
+        self.assertIsNone(parsed["Bcc"])
+        self.assertFalse(parsed.is_multipart())
+        self.assertEqual(parsed.get_content_type(), "text/plain")
+        self.assertEqual(parsed.get_content_charset(), "utf-8")
+        self.assertEqual(parsed["Subject"], subject)
+        self.assertEqual(parsed.get_content(), text)
+        self.assertIn("亲爱的<示例&同学>同学：", text)
+        self.assertIn("天天开心、无限进步！", text)
+        self.assertEqual(parsed["Auto-Submitted"], "auto-generated")
 
     def test_ssl_transport_uses_verified_context_and_auth(self):
         with patch("birthday_mailer.mail.smtplib.SMTP_SSL") as factory:

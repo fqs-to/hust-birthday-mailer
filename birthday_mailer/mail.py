@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 import os
 import smtplib
 import ssl
@@ -16,7 +15,7 @@ from .contacts import DataError, Member, validate_email
 BEIJING = timezone(timedelta(hours=8), "Asia/Shanghai")
 
 
-def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
+def render_greeting(member: Member, organization: str) -> tuple[str, str]:
     subject = f"{member.name}，生日快乐！｜{organization}"
     salutation = member.name if member.name.endswith("同学") else f"{member.name}同学"
     signature = f"华中科技大学{organization}" if organization == "计算机学院资委会" else organization
@@ -24,19 +23,7 @@ def render_greeting(member: Member, organization: str) -> tuple[str, str, str]:
             f"今天是您的生日，{organization}祝您生日快乐、万事胜意、天天开心、无限进步！\n\n"
             f"{signature}\n\n"
             "这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。\n")
-    name, org, sign = html.escape(salutation), html.escape(organization), html.escape(signature)
-    markup = f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:28px 12px;background:#f4f3ed;color:#243a35;font-family:'Microsoft YaHei',Arial,sans-serif;">
-<table role="presentation" style="width:100%;max-width:600px;margin:auto;border-collapse:collapse;background:#fff;">
-<tr><td style="padding:26px 32px;background:#174c42;color:#fff;font-size:14px;letter-spacing:2px;">{org}</td></tr>
-<tr><td style="padding:38px 32px 12px;color:#8a6332;font-size:13px;letter-spacing:3px;">HAPPY BIRTHDAY</td></tr>
-<tr><td style="padding:0 32px 24px;font-size:30px;font-weight:bold;">生日快乐！</td></tr>
-<tr><td style="padding:0 32px 32px;font-size:16px;line-height:2;">亲爱的{name}：<br><br>您好！<br><br>
-今天是您的生日，{org}祝您生日快乐、万事胜意、天天开心、无限进步！</td></tr>
-<tr><td style="padding:22px 32px;border-top:1px solid #e7e9e3;font-size:14px;">{sign}</td></tr>
-<tr><td style="padding:0 32px 26px;color:#697773;font-size:12px;line-height:1.8;">这是一封自动送达的生日祝福。如生日或邮箱有误，或希望停止接收，请回复告知。</td></tr>
-</table></body></html>"""
-    return subject, text, markup
+    return subject, text
 
 
 @dataclass(frozen=True)
@@ -72,7 +59,7 @@ class SMTPConfig:
 
 
 def build_message(member: Member, config: SMTPConfig, organization: str, message_id: str, *, test: bool = False) -> EmailMessage:
-    subject, text, markup = render_greeting(member, organization)
+    subject, text = render_greeting(member, organization)
     message = EmailMessage()
     message["From"] = formataddr((config.sender_name, config.sender))
     message["To"] = formataddr((member.name, member.email))
@@ -83,7 +70,6 @@ def build_message(member: Member, config: SMTPConfig, organization: str, message
     message["Auto-Submitted"] = "auto-generated"
     message["X-Auto-Response-Suppress"] = "All"
     message.set_content(text)
-    message.add_alternative(markup, subtype="html")
     return message
 
 

@@ -86,13 +86,17 @@ class CLITests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertEqual(target.read_text(), "existing")
 
-    def test_preview_generates_html_without_smtp(self):
+    def test_preview_generates_text_without_smtp(self):
         with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / "preview.html"
+            target = Path(directory) / "preview.txt"
             with patch("birthday_mailer.cli.SMTPTransport") as transport:
                 code, output = self.invoke(["preview", "--output", str(target)])
             self.assertEqual(code, 0)
-            self.assertIn("生日快乐", target.read_text(encoding="utf-8"))
+            preview = target.read_text(encoding="utf-8")
+            self.assertTrue(preview.startswith("亲爱的示例同学：\n\n您好！\n\n"))
+            self.assertIn("生日快乐", preview)
+            self.assertNotIn("<html", preview)
+            self.assertIn("文本预览已保存", output)
             transport.assert_not_called()
 
     def test_chinese_output_works_in_non_utf8_pipe(self):
